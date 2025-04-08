@@ -44,25 +44,20 @@ jobs:
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/file-preview:latest
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/file-preview:${{ github.ref_name }}
 
-  release:
+  build-binaries:
     needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.10']
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Check config file
-        run: |
-          if [ ! -f "config/config.yaml" ]; then
-            echo "Error: config/config.yaml not found"
-            exit 1
-          fi
-
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -71,15 +66,53 @@ jobs:
 
       - name: Build binaries
         run: |
-          pyinstaller --clean --onefile \
-            --add-data "config/config.yaml:config" \
-            --add-data "file_preview:file_preview" \
-            file_preview/cli/main.py
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            pyinstaller --clean --onefile \
+              --add-data "config/config.yaml:config" \
+              --add-data "file_preview:file_preview" \
+              --name "file-preview-linux-$(uname -m)" \
+              file_preview/cli/main.py
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            pyinstaller --clean --onefile \
+              --add-data "config/config.yaml:config" \
+              --add-data "file_preview:file_preview" \
+              --name "file-preview-mac-$(uname -m)" \
+              file_preview/cli/main.py
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            pyinstaller --clean --onefile \
+              --add-data "config/config.yaml;config" \
+              --add-data "file_preview;file_preview" \
+              --name "file-preview-win-$(uname -m)" \
+              file_preview/cli/main.py
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-${{ matrix.os }}
+          path: dist/
+
+  release:
+    needs: [build, build-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/main
+            artifacts/binaries-ubuntu-latest/file-preview-linux-*
+            artifacts/binaries-macos-latest/file-preview-mac-*
+            artifacts/binaries-windows-latest/file-preview-win-*
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

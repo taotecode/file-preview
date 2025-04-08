@@ -181,4 +181,4 @@ file-preview cleanup --config /path/to/config.yaml
 
 - 问题反馈：https://github.com/taotecode/file-preview/issues
 - 文档：https://github.com/taotecode/file-preview#readme
-- 邮件：taotecode@example.com
+- 邮件：taotecode@gmail.com
