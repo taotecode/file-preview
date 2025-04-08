@@ -38,7 +38,7 @@ WORKDIR /app
 
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/dist/main /app/file-preview
-COPY config.yaml /app/
+COPY --from=builder /app/config.yaml /app/config.yaml
 
 # 创建必要的目录
 RUN mkdir -p /app/cache /app/download /app/log /app/convert
