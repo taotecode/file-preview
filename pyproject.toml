@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "file-preview"
+version = "0.1.0"
+description = "A tool for previewing and converting files"
+authors = [
+    { name = "Joshua Burgin", email = "taotecode@gmail.com" }
+]
+dependencies = [
+    "click>=8.0.0",
+    "flask>=2.0.0",
+    "requests>=2.25.0",
+    "python-magic>=0.4.24",
+    "PyYAML>=5.4.1",
+    "pytest>=6.2.5",
+    "pytest-cov>=2.12.1"
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.scripts]
+file-preview = "file_preview.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/taotecode/file-preview"
+Documentation = "https://github.com/taotecode/file-preview#readme"
+Repository = "https://github.com/taotecode/file-preview.git"
+
+[tool.hatch.build.targets.wheel]
+packages = ["file_preview"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=file_preview --cov-report=term-missing" 

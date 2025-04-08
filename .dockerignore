@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 测试
+tests/
+*.test
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 文档
+docs/
+*.md
+!README.md
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 其他
+.DS_Store
+*.log
+cache/
+download/
+convert/
+log/ 
