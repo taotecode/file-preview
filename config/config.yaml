@@ -1,0 +1,44 @@
+# 文件预览服务配置
+
+# 目录配置
+directories:
+  cache: /tmp/file_preview/cache      # 缓存文件目录
+  download: /tmp/file_preview/download  # 下载文件临时目录
+  convert: /tmp/file_preview/convert    # 转换文件临时目录
+  log: /tmp/file_preview/log            # 日志目录
+
+# 服务器配置
+server:
+  host: 0.0.0.0                        # 预览服务器主机地址
+  port: 5001                           # 预览服务器端口
+
+# 缓存配置
+cache:
+  retention_days: 7                    # 缓存保留天数
+  max_size: 1024                       # 最大缓存大小（MB）
+
+# 日志配置
+logging:
+  level: INFO                          # 日志级别
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 性能配置
+performance:
+  max_workers: 4                       # 最大工作线程数
+  download_timeout: 30                 # 下载超时时间（秒）
+  keep_original_name: true             # 是否保留原始文件名
+  enable_multithreading: true          # 是否启用多线程模式
+  worker_processes: 2                  # 工作进程数
+
+# 转换配置
+conversion:
+  libreoffice_path: /usr/bin/libreoffice  # LibreOffice 可执行文件路径
+  office_path: /Applications/Microsoft Office  # Microsoft Office 安装路径
+  timeout: 300                          # 转换超时时间（秒）
+  retry_times: 3                        # 转换失败重试次数
+  supported_formats:                    # 支持的格式
+    - .doc
+    - .docx
+    - .xls
+    - .xlsx
+    - .txt 

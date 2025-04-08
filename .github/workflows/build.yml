@@ -13,8 +13,8 @@ jobs:
 
       - name: Check config file
         run: |
-          if [ ! -f "config.yaml" ]; then
-            echo "Error: config.yaml not found"
+          if [ ! -f "config/config.yaml" ]; then
+            echo "Error: config/config.yaml not found"
             exit 1
           fi
 
@@ -49,8 +49,8 @@ jobs:
 
       - name: Check config file
         run: |
-          if [ ! -f "config.yaml" ]; then
-            echo "Error: config.yaml not found"
+          if [ ! -f "config/config.yaml" ]; then
+            echo "Error: config/config.yaml not found"
             exit 1
           fi
 
@@ -67,7 +67,7 @@ jobs:
       - name: Build binaries
         run: |
           pyinstaller --clean --onefile \
-            --add-data "config.yaml:." \
+            --add-data "config/config.yaml:config" \
             --add-data "file_preview:file_preview" \
             file_preview/cli/main.py
 

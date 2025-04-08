@@ -61,9 +61,11 @@ convert/
 venv/
 .venv/
 *.code-workspace
-config.yaml
 *.spec.build
 *.spec.build.cache
 *.spec.build.cache.cache
 *.spec.build.cache.cache.cache
 *.spec.build.cache.cache.cache.cache
+
+# Project specific
+/config.yaml

@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 使用 PyInstaller 构建二进制文件
 RUN pip install pyinstaller
 RUN pyinstaller --clean --onefile \
-    --add-data "config.yaml:." \
+    --add-data "config/config.yaml:config" \
     --add-data "file_preview:file_preview" \
     file_preview/cli/main.py
 
@@ -38,10 +38,10 @@ WORKDIR /app
 
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/dist/main /app/file-preview
-COPY --from=builder /app/config.yaml /app/config.yaml
+COPY --from=builder /app/config/config.yaml /app/config/config.yaml
 
 # 创建必要的目录
-RUN mkdir -p /app/cache /app/download /app/log /app/convert
+RUN mkdir -p /app/cache /app/download /app/log /app/convert /app/config
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
