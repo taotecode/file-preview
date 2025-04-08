@@ -20,8 +20,9 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
+          registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_PAT }}
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v4
@@ -30,8 +31,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/file-preview:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/file-preview:${{ github.ref_name }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/file-preview:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/file-preview:${{ github.ref_name }}
 
   release:
     needs: build
