@@ -64,27 +64,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
 
-      - name: Build binaries
+      - name: Build binaries (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            pyinstaller --clean --onefile \
-              --add-data "config/config.yaml:config" \
-              --add-data "file_preview:file_preview" \
-              --name "file-preview-linux-$(uname -m)" \
-              file_preview/cli/main.py
-          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            pyinstaller --clean --onefile \
-              --add-data "config/config.yaml:config" \
-              --add-data "file_preview:file_preview" \
-              --name "file-preview-mac-$(uname -m)" \
-              file_preview/cli/main.py
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            pyinstaller --clean --onefile \
-              --add-data "config/config.yaml;config" \
-              --add-data "file_preview;file_preview" \
-              --name "file-preview-win-$(uname -m)" \
-              file_preview/cli/main.py
-          fi
+          pyinstaller --clean --onefile \
+            --add-data "config/config.yaml:config" \
+            --add-data "file_preview:file_preview" \
+            --name "file-preview-linux-$(uname -m)" \
+            file_preview/cli/main.py
+        shell: bash
+
+      - name: Build binaries (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          pyinstaller --clean --onefile \
+            --add-data "config/config.yaml:config" \
+            --add-data "file_preview:file_preview" \
+            --name "file-preview-mac-$(uname -m)" \
+            file_preview/cli/main.py
+        shell: bash
+
+      - name: Build binaries (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pyinstaller --clean --onefile ^
+            --add-data "config/config.yaml;config" ^
+            --add-data "file_preview;file_preview" ^
+            --name "file-preview-win-x86_64" ^
+            file_preview/cli/main.py
+        shell: cmd
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
