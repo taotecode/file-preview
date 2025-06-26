@@ -1,0 +1,387 @@
+<template>
+  <div class="excel-preview-container">
+    <!-- 加载状态 -->
+    <el-skeleton :loading="isLoading" animated style="width: 100%; height: 100%;" :rows="20">
+      <template #default>
+        <!-- 错误提示 -->
+        <el-alert
+          v-if="error"
+          type="error"
+          :title="error"
+          show-icon
+          description="请检查文件格式或刷新页面重试"
+          style="margin-bottom: 16px;"
+        />
+
+        <!-- 无工作表提示 -->
+        <el-alert
+          v-else-if="worksheets.length === 0 && !isLoading"
+          type="info"
+          title="未发现工作表"
+          show-icon
+          description="该Excel文件中没有包含任何工作表"
+          style="margin-bottom: 16px;"
+        />
+
+        <!-- 表格内容 -->
+        <template v-else>
+          <!-- 工作表选择器 -->
+          <div v-if="worksheets.length > 1" class="sheet-selector">
+            <el-select v-model="activeWorksheet" placeholder="选择工作表" @change="handleSheetChange">
+              <el-option
+                v-for="sheet in worksheets"
+                :key="sheet"
+                :label="sheet"
+                :value="sheet"
+              />
+            </el-select>
+          </div>
+          
+          <!-- 表格容器 -->
+          <div class="excel-view-wrapper">
+            <table-renderer
+              :data="currentSheetData"
+              :multiple-sheets="false"
+              :is-full-height="true"
+              :height="600"
+              @error="handleTableError"
+              @rendered="handleTableRendered"
+            />
+          </div>
+        </template>
+      </template>
+    </el-skeleton>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ElMessage, ElSkeleton, ElAlert } from 'element-plus'
+import TableRenderer from '../components/TableRenderer.vue'
+import { parseExcelFile, extractXLSXWorksheetData, extractExcelJSWorksheetData } from '../utils/excel-utils'
+import type { TableData } from '../utils/excel-utils'
+
+// 定义props
+const props = defineProps({
+  filePath: {
+    type: String,
+    default: ''
+  },
+  fileId: {
+    type: String,
+    default: ''
+  },
+  fileData: {
+    type: [ArrayBuffer, null],
+    default: null
+  }
+})
+
+// 状态变量
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+const worksheets = ref<string[]>([])
+const fileBuffer = ref<ArrayBuffer | null>(null)
+const workbookData = ref<any>(null)
+const activeWorksheet = ref<string>('')
+const currentSheetData = ref<TableData | null>(null)
+
+/**
+ * 加载Excel文件
+ */
+async function loadExcelFile(): Promise<boolean> {
+  try {
+    isLoading.value = true
+    error.value = null
+    
+    // 检查文件数据是否存在
+    if (!props.fileData && !fileBuffer.value) {
+      throw new Error('未提供有效的文件数据')
+    }
+    
+    // 确保fileBuffer.value有值
+    const excelData = fileBuffer.value || props.fileData as ArrayBuffer
+    if (!excelData) {
+      throw new Error('文件数据无效')
+    }
+    
+    try {
+      // 使用封装的解析函数
+      const { workbook, worksheets: sheetNames, error: parseError } = await parseExcelFile(excelData)
+      
+      if (parseError) {
+        throw new Error(parseError)
+      }
+      
+      if (!workbook) {
+        throw new Error('无法加载Excel文件')
+      }
+      
+      workbookData.value = workbook
+      
+      // 更新工作表列表
+      worksheets.value = sheetNames
+      
+      if (sheetNames.length > 0) {
+        // 只加载第一个工作表
+        activeWorksheet.value = sheetNames[0]
+        await loadWorksheet(activeWorksheet.value)
+      } else {
+        throw new Error('Excel文件中未找到工作表')
+      }
+      
+      return true
+    } catch (err: any) {
+      console.error('加载Excel文件失败:', err)
+      throw new Error(`加载Excel失败: ${err.message || '未知错误'}`)
+    }
+  } catch (err: any) {
+    console.error('加载Excel文件出错:', err)
+    error.value = `加载Excel失败: ${err.message || '未知错误'}`
+    return false
+  } finally {
+    isLoading.value = false
+  }
+}
+
+/**
+ * 加载单个工作表
+ */
+async function loadWorksheet(sheetName: string): Promise<TableData | null> {
+  if (!workbookData.value || !sheetName) {
+    console.error('无法加载工作表，工作簿或工作表名称无效')
+    return null
+  }
+  
+  try {
+    console.log(`加载工作表 "${sheetName}"...`)
+    let sheetData: TableData
+    
+    // 检查是否是 ExcelJS 工作簿
+    if (workbookData.value.getWorksheet && typeof workbookData.value.getWorksheet === 'function') {
+      // 处理 ExcelJS 工作表
+      const worksheet = workbookData.value.getWorksheet(sheetName)
+      if (!worksheet) {
+        console.warn(`找不到工作表: ${sheetName}`)
+        return null
+      }
+      
+      sheetData = extractExcelJSWorksheetData(worksheet, sheetName)
+    } else {
+      // 处理 XLSX 工作表
+      const worksheet = workbookData.value.Sheets[sheetName]
+      if (!worksheet) {
+        console.warn(`找不到工作表: ${sheetName}`)
+        return null
+      }
+      
+      sheetData = extractXLSXWorksheetData(worksheet, sheetName)
+    }
+    
+    console.log(`工作表 "${sheetName}" 加载完成, 数据大小: ${Object.keys(sheetData.cells || {}).length} 单元格`)
+    currentSheetData.value = sheetData
+    return sheetData
+  } catch (error) {
+    console.error(`加载工作表 "${sheetName}" 失败:`, error)
+    return null
+  }
+}
+
+/**
+ * 获取文件数据
+ */
+async function fetchFileData(id?: string | null, path?: string | null): Promise<void> {
+  try {
+    isLoading.value = true
+    error.value = null
+    
+    // let url="https://qiniu.pan.berfen.com/test_files/test_xlsx.xlsx"
+    let url="https://501351981.github.io/vue-office/examples/dist/static/test-files/test.xlsx"
+    // if (id) {
+    //   url = `/api/file/${id}`
+    // } else if (path) {
+    //   url = `/api/file?path=${encodeURIComponent(path)}`
+    // } else {
+    //   throw new Error('需要提供文件ID或路径')
+    // }
+    
+    console.log(`开始从 ${url} 获取文件数据...`)
+    
+    try {
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`请求失败: ${response.status} ${response.statusText}`)
+      }
+      
+      // 检查内容类型
+      const contentType = response.headers.get('content-type')
+      
+      // 根据内容类型决定如何处理响应
+      if (contentType && contentType.includes('application/json')) {
+        // 如果返回的是JSON，可能是错误信息
+        const jsonData = await response.json()
+        console.log('收到JSON响应:', jsonData)
+        
+        if (jsonData.error) {
+          throw new Error(jsonData.error)
+        }
+        
+        throw new Error('服务器返回了JSON数据而不是Excel文件')
+      } else {
+        // 如果是其他类型，直接获取ArrayBuffer
+        const buffer = await response.arrayBuffer()
+        
+        // 验证文件头，确保这是一个Excel文件
+        const headerBytes = new Uint8Array(buffer.slice(0, 4))
+        const hexHeader = Array.from(headerBytes)
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+        
+        // 常见的Excel文件头: 504b0304 (XLSX/XLSM), d0cf11e0 (XLS), 编号 (Binary)
+        const validExcelHeaders = ['504b0304', 'd0cf11e0']
+        
+        // 只是一个简单验证，不是决定性的
+        if (!validExcelHeaders.some(header => hexHeader.startsWith(header))) {
+          console.warn('文件头不匹配Excel格式，但仍将尝试解析')
+        }
+        
+        // 存储数据
+        fileBuffer.value = buffer
+        
+        // 尝试加载Excel文件
+        await loadExcelFile()
+      }
+    } catch (fetchError: any) {
+      console.error('获取文件时出错:', fetchError)
+      throw new Error(`获取文件失败: ${fetchError.message || '网络错误'}`)
+    }
+  } catch (err: any) {
+    console.error('获取文件数据出错:', err)
+    error.value = `获取文件失败: ${err.message || '未知错误'}`
+    isLoading.value = false
+  }
+}
+
+/**
+ * 处理表格渲染错误
+ */
+function handleTableError(errorMessage: string) {
+  console.error('表格渲染错误:', errorMessage)
+  error.value = errorMessage
+}
+
+/**
+ * 处理表格渲染完成
+ */
+function handleTableRendered() {
+  console.log('表格渲染完成')
+}
+
+// 监听fileData变化
+// watch(() => props.fileData, (newVal) => {
+//   if (newVal) {
+//     fileBuffer.value = newVal as ArrayBuffer
+//     loadExcelFile()
+//   }
+// }, { immediate: true })
+
+// // 监听fileId和filePath变化
+// watch(() => props.fileId, async (newVal) => {
+//   if (newVal && !fileBuffer.value) {
+//     await fetchFileData(newVal)
+//   }
+// }, { immediate: true })
+
+// watch(() => props.filePath, async (newVal) => {
+//   if (newVal && !fileBuffer.value) {
+//     await fetchFileData(null, newVal)
+//   }
+// }, { immediate: true })
+
+// 组件挂载
+onMounted(async () => {
+  try {
+    // 从window.previewParams获取文件信息，或者从props获取
+    const windowWithPreview = window as any
+    if (windowWithPreview.previewParams && windowWithPreview.previewParams.filePath) {
+      const filePath = windowWithPreview.previewParams.filePath
+      await fetchFileData(null, filePath)
+    } else if (props.filePath) {
+      await fetchFileData(null, props.filePath)
+    } else if (props.fileId) {
+      await fetchFileData(props.fileId)
+    } else if (props.fileData) {
+      fileBuffer.value = props.fileData as ArrayBuffer
+      await loadExcelFile()
+    }
+  } catch (error: any) {
+    console.error('初始化组件失败:', error)
+    error.value = `初始化失败: ${error.message || '未知错误'}`
+  }
+})
+
+// 组件销毁前清理
+onBeforeUnmount(() => {
+  // 清理资源
+  workbookData.value = null
+  fileBuffer.value = null
+})
+
+/**
+ * 处理工作表切换
+ */
+function handleSheetChange() {
+  if (activeWorksheet.value && worksheets.value.includes(activeWorksheet.value)) {
+    loadWorksheet(activeWorksheet.value)
+  }
+}
+</script>
+
+<style scoped>
+.excel-preview-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.excel-view-wrapper {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 添加x-data-spreadsheet相关样式 */
+:deep(.x-spreadsheet) {
+  border: 1px solid #e0e0e0;
+  box-shadow: none;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.x-spreadsheet-sheet) {
+  flex: 1;
+  height: auto !important;
+}
+
+/* 显示工作表切换器 */
+:deep(.x-spreadsheet-bottombar) {
+  display: flex !important;
+  height: 30px;
+}
+
+/* 工作表标签样式 */
+:deep(.x-spreadsheet-sheet-tab) {
+  display: inline-block !important;
+}
+
+.sheet-selector {
+  margin-bottom: 16px;
+}
+</style>
