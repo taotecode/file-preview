@@ -78,7 +78,7 @@ curl -X POST -F "file=@/path/to/file.docx" http://localhost:5000/api/convert
 
 2. 转换网络文件：
 ```bash
-curl "http://localhost:5000/api/convert/url?url=https://example.com/file.docx"
+curl "http://localhost:5000/api/convert?url=https://example.com/file.docx"
 ```
 
 3. 预览文件：
@@ -137,7 +137,7 @@ curl -X POST -F "file=@document.docx" http://localhost:5000/api/convert
 
 ```bash
 # 使用 API 转换网络文件
-curl "http://localhost:5000/api/convert/url?url=https://example.com/document.docx"
+curl "http://localhost:5000/api/convert?url=https://example.com/document.docx"
 
 # 在浏览器中预览
 # 复制返回的预览 URL 并在浏览器中打开

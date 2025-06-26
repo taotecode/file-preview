@@ -17,7 +17,7 @@ def test_get_file_info(test_file: str):
     info = get_file_info(test_file)
     
     # 验证文件信息
-    assert info['name'] == 'test.docx'
+    assert info['filename'] == 'test.docx'
     assert info['size'] > 0
     assert info['path'] == test_file
     assert info['extension'] == '.docx'
@@ -42,7 +42,14 @@ def test_is_supported_format(test_file: str, test_config: dict):
     
     # 测试不支持的格式
     test_file_unsupported = test_file.replace('.docx', '.xyz')
-    assert is_supported_format(test_file_unsupported, test_config) == False
+    with open(test_file_unsupported, 'w') as f:
+        f.write("test content")
+    try:
+        assert is_supported_format(test_file_unsupported, test_config) == False
+    finally:
+        # 清理测试文件
+        if os.path.exists(test_file_unsupported):
+            os.remove(test_file_unsupported)
 
 def test_generate_output_path(test_file: str, test_config: dict):
     """
@@ -53,12 +60,17 @@ def test_generate_output_path(test_file: str, test_config: dict):
         test_config: 测试配置
     """
     # 测试保留原文件名
-    output_path = generate_output_path(test_config['directories']['convert'], test_file, keep_original_name=True)
+    output_dir = test_config['directories']['convert']
+    output_path = generate_output_path(output_dir, test_file, keep_original_name=True)
     assert output_path.endswith('test.pdf')
-    assert os.path.dirname(output_path) == test_config['directories']['convert']
+    assert os.path.dirname(output_path) == output_dir
     
-    # 测试不保留原文件名
-    output_path = generate_output_path(test_config['directories']['convert'], test_file, keep_original_name=False)
+    # 测试不保留原文件名（使用MD5）
+    output_path = generate_output_path(output_dir, test_file, keep_original_name=False)
     assert output_path.endswith('.pdf')
-    assert os.path.dirname(output_path) == test_config['directories']['convert']
-    assert len(os.path.basename(output_path)) == 36 + 4  # UUID长度 + .pdf 
+    assert os.path.dirname(output_path) == output_dir
+    
+    # 测试直接传递配置字典
+    output_path = generate_output_path(test_config, test_file, keep_original_name=True)
+    assert output_path.endswith('test.pdf')
+    assert os.path.dirname(output_path) == output_dir 

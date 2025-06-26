@@ -2,20 +2,43 @@
 
 # 目录配置
 directories:
-  cache: /tmp/file_preview/cache      # 缓存文件目录
-  download: /tmp/file_preview/download  # 下载文件临时目录
-  convert: /tmp/file_preview/convert    # 转换文件临时目录
-  log: /tmp/file_preview/log            # 日志目录
+  # 缓存目录
+  cache: "/tmp/file_preview/cache"
+  # 下载目录
+  download: "/tmp/file_preview/download"
+  # 转换目录
+  convert: "/tmp/file_preview/convert"
+  # 日志目录
+  log: "/tmp/file_preview/log"
 
 # 服务器配置
 server:
-  host: 0.0.0.0                        # 预览服务器主机地址
-  port: 5001                           # 预览服务器端口
+  # 主机
+  host: "127.0.0.1"
+  # 端口
+  port: 5001
+  # 最大上传大小（字节）
+  max_content_length: 104857600  # 100MB = 100 * 1024 * 1024 字节
 
 # 缓存配置
 cache:
   retention_days: 7                    # 缓存保留天数
   max_size: 1024                       # 最大缓存大小（MB）
+
+# Redis配置
+redis:
+  # 是否启用Redis缓存
+  enabled: false
+  # Redis主机
+  host: "localhost"
+  # Redis端口
+  port: 6379
+  # Redis数据库索引
+  db: 0
+  # Redis密码
+  password: null
+  # Redis键前缀
+  prefix: "file_preview:"
 
 # 日志配置
 logging:
@@ -32,13 +55,20 @@ performance:
 
 # 转换配置
 conversion:
-  libreoffice_path: /usr/bin/libreoffice  # LibreOffice 可执行文件路径
-  office_path: /Applications/Microsoft Office  # Microsoft Office 安装路径
-  timeout: 300                          # 转换超时时间（秒）
-  retry_times: 3                        # 转换失败重试次数
-  supported_formats:                    # 支持的格式
-    - .doc
-    - .docx
-    - .xls
-    - .xlsx
-    - .txt 
+  # LibreOffice 路径
+  libreoffice_path: "/opt/homebrew/bin/soffice"
+  # 转换超时时间（秒）
+  timeout: 300
+  # 重试次数
+  retry_times: 3
+  # 支持的文件格式
+  supported_formats:
+    - ".doc"
+    - ".docx"
+    - ".xls"
+    - ".xlsx"
+    - ".ppt"
+    - ".pptx"
+    - ".odt"
+    - ".ods"
+    - ".odp"

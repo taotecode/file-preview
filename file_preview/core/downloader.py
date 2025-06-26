@@ -8,6 +8,7 @@ import requests
 from typing import Optional
 from urllib.parse import urlparse
 from ..utils.file import get_file_info
+import time
 
 # 获取日志记录器
 logger = logging.getLogger('file_preview')
@@ -40,47 +41,56 @@ class FileDownloader:
             url: 文件URL
             
         Returns:
-            下载的文件路径，如果下载失败则返回None
+            下载后的文件路径，如果下载失败则返回None
         """
         try:
-            # 解析URL获取文件名
-            parsed_url = urlparse(url)
-            filename = os.path.basename(parsed_url.path)
+            # 获取文件名
+            filename = url.split('/')[-1]
+            if '?' in filename:
+                filename = filename.split('?')[0]
+            
+            # 处理文件名（确保文件名合法）
             if not filename:
-                filename = 'downloaded_file'
+                filename = f"downloaded_file_{int(time.time())}"
+            
+            # 获取项目根目录
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            
+            # 获取下载目录的绝对路径
+            download_dir_abs = os.path.join(root_dir, self.download_dir.lstrip("./"))
+            
+            # 确保下载目录存在
+            os.makedirs(download_dir_abs, exist_ok=True)
             
             # 生成输出路径
-            output_path = os.path.join(self.download_dir, filename)
+            output_path = os.path.join(download_dir_abs, filename)
             
             logger.info(f"开始下载文件: {url} -> {output_path}")
             
             # 下载文件
-            response = requests.get(url, timeout=self.timeout, stream=True)
-            response.raise_for_status()  # 检查HTTP错误
+            response = requests.get(url, stream=True, timeout=30)
             
-            # 保存文件
+            # 检查响应状态
+            if response.status_code != 200:
+                logger.error(f"下载失败，响应状态: {response.status_code}")
+                return None
+            
+            # 写入文件
             with open(output_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
             
-            logger.info(f"文件下载成功: {output_path}")
-            return output_path
+            # 检查文件是否下载成功
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                logger.info(f"文件下载成功: {output_path}, 大小: {os.path.getsize(output_path)} 字节")
+                return output_path
+            else:
+                logger.error(f"文件下载失败: {output_path}")
+                return None
             
-        except requests.exceptions.Timeout:
-            logger.error(f"下载超时: {url}")
-            return None
-        except requests.exceptions.ConnectionError:
-            logger.error(f"连接错误: {url}")
-            return None
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP错误: {url}, 状态码: {e.response.status_code}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"下载请求错误: {url}, 错误: {str(e)}")
-            return None
         except Exception as e:
-            logger.error(f"下载文件时发生未知错误: {url}, 错误: {str(e)}", exc_info=True)
+            logger.error(f"下载过程中发生错误: {str(e)}", exc_info=True)
             return None
     
     def cleanup(self, file_path: str) -> None:

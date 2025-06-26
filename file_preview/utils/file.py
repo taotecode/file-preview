@@ -24,7 +24,8 @@ def get_file_info(file_path: str) -> Dict[str, Any]:
         raise FileNotFoundError(f"文件不存在: {file_path}")
     
     return {
-        'name': os.path.basename(file_path),
+        'filename': os.path.basename(file_path),
+        'path': file_path,
         'size': os.path.getsize(file_path),
         'extension': os.path.splitext(file_path)[1].lower()
     }
@@ -42,7 +43,18 @@ def is_supported_format(file_path: str, config: Dict[str, Any]) -> bool:
     """
     try:
         file_info = get_file_info(file_path)
-        return file_info['extension'] in config['conversion']['supported_formats']
+        # 从配置中获取支持的格式，如果转换配置不存在，则检查根级配置
+        supported_formats = config.get('conversion', {}).get('supported_formats')
+        
+        # 如果 supported_formats 不存在，尝试从根级配置获取
+        if not supported_formats:
+            supported_formats = config.get('supported_formats', [])
+            
+        # 如果仍然没有格式配置，使用默认支持的格式
+        if not supported_formats:
+            supported_formats = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt']
+            
+        return file_info['extension'] in supported_formats
     except Exception as e:
         logger.error(f"检查文件格式失败: {str(e)}", exc_info=True)
         return False
@@ -75,24 +87,45 @@ def get_url_md5(url: str) -> str:
     """
     return hashlib.md5(url.encode()).hexdigest()
 
-def generate_output_path(input_path: str, output_dir: str, keep_original_name: bool = True) -> str:
+def generate_output_path(output_dir: str, input_path: str, keep_original_name: bool = True) -> str:
     """
     生成输出文件路径
     
     Args:
-        input_path: 输入文件路径
         output_dir: 输出目录
+        input_path: 输入文件路径
         keep_original_name: 是否保留原始文件名
         
     Returns:
         输出文件路径
     """
+    # 确保参数是字符串类型
+    if isinstance(output_dir, dict):
+        # 如果是字典，尝试获取 'convert' 目录
+        if 'directories' in output_dir and 'convert' in output_dir['directories']:
+            output_dir = output_dir['directories']['convert']
+        else:
+            raise ValueError("无法从字典中获取输出目录")
+    
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+    
     if keep_original_name:
-        filename = os.path.basename(input_path)
-        name, ext = os.path.splitext(filename)
-        return os.path.join(output_dir, f"{name}.pdf")
+        try:
+            file_info = get_file_info(input_path)
+            filename = file_info['filename']
+            name, ext = os.path.splitext(filename)
+            return os.path.join(output_dir, f"{name}.pdf")
+        except FileNotFoundError:
+            # 如果文件不存在，使用路径的基本名称
+            name, ext = os.path.splitext(os.path.basename(input_path))
+            return os.path.join(output_dir, f"{name}.pdf")
     else:
-        return os.path.join(output_dir, f"{get_file_md5(input_path)}.pdf")
+        try:
+            return os.path.join(output_dir, f"{get_file_md5(input_path)}.pdf")
+        except FileNotFoundError:
+            # 如果文件不存在，使用时间戳
+            return os.path.join(output_dir, f"{int(time.time())}.pdf")
 
 def cleanup_directory(directory: str, retention_days: int = 7) -> Tuple[int, int]:
     """

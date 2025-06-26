@@ -99,7 +99,7 @@ curl -X POST -F "file=@/path/to/file.docx" http://localhost:5000/api/convert
 ### 2. 转换网络文件
 
 ```bash
-curl -X GET "http://localhost:5000/api/convert/url?url=https://example.com/file.docx"
+curl -X GET "http://localhost:5000/api/convert?url=https://example.com/file.docx"
 ```
 
 响应示例：

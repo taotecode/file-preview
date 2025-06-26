@@ -58,10 +58,19 @@ class FileConverter:
                 logger.error(f"不支持的文件格式: {file_info['extension']}")
                 return None
             
+            # 获取项目根目录
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            
+            # 获取转换目录的绝对路径
+            convert_dir_abs = os.path.join(root_dir, self.convert_dir.lstrip("./"))
+            
+            # 确保转换目录存在
+            os.makedirs(convert_dir_abs, exist_ok=True)
+            
             # 生成输出路径
             output_path = os.path.join(
-                self.convert_dir,
-                f"{os.path.splitext(file_info['name'])[0]}.pdf"
+                convert_dir_abs,
+                f"{os.path.splitext(file_info['filename'])[0]}.pdf"
             )
             
             # 如果输出文件已存在，直接返回
@@ -74,7 +83,7 @@ class FileConverter:
                 self.libreoffice_path,
                 '--headless',
                 '--convert-to', 'pdf',
-                '--outdir', self.convert_dir,
+                '--outdir', convert_dir_abs,
                 input_path
             ]
             
@@ -111,4 +120,93 @@ class FileConverter:
             
         except Exception as e:
             logger.error(f"转换文件时发生未知错误: {str(e)}", exc_info=True)
+            return None 
+            
+    def convert_xls_to_xlsx(self, input_path: str) -> Optional[str]:
+        """
+        将XLS文件转换为XLSX格式
+        
+        Args:
+            input_path: 输入文件路径
+            
+        Returns:
+            转换后的XLSX文件路径，如果转换失败则返回None
+        """
+        try:
+            # 检查文件是否存在
+            if not os.path.exists(input_path):
+                logger.error(f"输入文件不存在: {input_path}")
+                return None
+            
+            # 获取文件信息
+            file_info = get_file_info(input_path)
+            logger.info(f"开始将XLS转换为XLSX: {file_info}")
+            
+            # 检查文件格式是否为xls
+            if file_info['extension'].lower() != '.xls':
+                logger.error(f"不是XLS文件格式: {file_info['extension']}")
+                return None
+            
+            # 获取项目根目录
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            
+            # 获取转换目录的绝对路径
+            convert_dir_abs = os.path.join(root_dir, self.convert_dir.lstrip("./"))
+            
+            # 确保转换目录存在
+            os.makedirs(convert_dir_abs, exist_ok=True)
+            
+            # 生成输出路径
+            output_path = os.path.join(
+                convert_dir_abs,
+                f"{os.path.splitext(file_info['filename'])[0]}.xlsx"
+            )
+            
+            # 如果输出文件已存在，直接返回
+            if os.path.exists(output_path):
+                logger.info(f"输出文件已存在: {output_path}")
+                return output_path
+            
+            # 构建转换命令
+            cmd = [
+                self.libreoffice_path,
+                '--headless',
+                '--convert-to', 'xlsx',
+                '--outdir', convert_dir_abs,
+                input_path
+            ]
+            
+            logger.info(f"执行转换命令: {' '.join(cmd)}")
+            
+            # 尝试转换
+            for attempt in range(self.retry_times):
+                try:
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE
+                    )
+                    
+                    # 等待进程完成
+                    stdout, stderr = process.communicate(timeout=self.timeout)
+                    
+                    # 检查返回码
+                    if process.returncode == 0:
+                        logger.info(f"XLS转XLSX成功: {output_path}")
+                        return output_path
+                    else:
+                        logger.warning(f"转换失败 (尝试 {attempt + 1}/{self.retry_times}): {stderr.decode()}")
+                        
+                except subprocess.TimeoutExpired:
+                    logger.warning(f"转换超时 (尝试 {attempt + 1}/{self.retry_times})")
+                    process.kill()
+                    process.communicate()
+                except Exception as e:
+                    logger.error(f"转换过程中发生错误 (尝试 {attempt + 1}/{self.retry_times}): {str(e)}", exc_info=True)
+            
+            logger.error(f"XLS转XLSX失败，已达到最大重试次数: {self.retry_times}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"转换XLS到XLSX时发生未知错误: {str(e)}", exc_info=True)
             return None 
